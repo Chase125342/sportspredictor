@@ -5,7 +5,6 @@ from prediction_ai import train_model, predict_game, evaluate_bet
 print("Getting NBA game data...")
 fetch_games("2025-26")
 
-
 print("Populating database...")
 generate_features()  
 

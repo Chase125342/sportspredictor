@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 import os
 
-DBPATH = os.path.join(os.path.dirname(__file__), "cbb_stats.db")
+DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
 
 def generate_features(rolling_window: int = 5):
 
@@ -10,10 +10,12 @@ def generate_features(rolling_window: int = 5):
     df = pd.read_sql("SELECT * FROM games", conn)
     print(f"Loaded {len(df)} rows from 'games' table.")
 
-    #data cleaning
+    #data cleaning no longer needed
+    '''
     df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%dT%H:%M:%S.%fZ', errors='coerce', utc=True)
     
     df = df.sort_values(by=['team', 'date'])
+    '''
 
     numeric_cols = ['team_points', 'opponent_points', 'team_reb', 'opponent_reb', 'team_ast', 'opponent_ast']
     df[numeric_cols] = df[numeric_cols].fillna(0)

@@ -7,8 +7,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
-DBPATH = os.path.join(BASEDIR, "Data", "cbb_stats.db")  
-MODELPATH = os.path.join(BASEDIR, "models", "cbb_model.pkl")
+DBPATH = os.path.join(BASEDIR, "Data", "nba_stats.db")  
+MODELPATH = os.path.join(BASEDIR, "models", "nba_model.pkl")
 
 def train_model():
     #database connection and data loading
