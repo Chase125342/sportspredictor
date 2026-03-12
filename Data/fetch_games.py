@@ -1,29 +1,20 @@
-import requests
+from nba_api.stats.endpoints import leaguegamelog
+import pandas as pd
 import sqlite3
 import os
 
-DBPATH = os.path.join(os.path.dirname(__file__), "cbb_stats.db")
-APIURL = "https://api.collegebasketballdata.com/games"
+DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
 
-def fetch_games(year, api_key):
-    print(f"Fetching games for {year}...")
 
-    headers = {}
-    if api_key:
-        headers['Authorization'] = f'Bearer {api_key}'
-
-    params = {"year": year}
-
-    response = requests.get(APIURL, params=params, headers=headers)
-    data = response.json()
-
+def fetch_games(season = "2025-2026"):
     conn = sqlite3.connect(DBPATH)
     cursor = conn.cursor()
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS games (
-        game_id TEXT PRIMARY KEY,
-        date TEXT,
+        game_id TEXT,
+        game_date TEXT,
+        team_id INTEGER,
         team TEXT,
         opponent TEXT,
         team_points INTEGER,
@@ -33,58 +24,122 @@ def fetch_games(year, api_key):
         team_ast INTEGER,
         opponent_ast INTEGER,
         home INTEGER,
-        win INTEGER
+        win INTEGER,
+        PRIMARY KEY (game_id, team_id)
     )
     """)
 
-    for g in data:
-        game_id = str(g["id"])
+    print(f"Pulling NBA data for season {season}...")
 
-        home_team = g.get("homeTeam", "Unknown")
-        away_team = g.get("awayTeam", "Unknown")
-        home_score = g.get("homePoints", 0)
-        away_score = g.get("awayPoints", 0)
+    df = leaguegamelog.LeagueGameLog(
+        season=season,
+        season_type_all_star="Regular Season",
+        player_or_team_abbreviation="T"
+    ).get_data_frames()[0]
 
-        home_win = 1 if home_score > away_score else 0
-        away_win = 1 if away_score > home_score else 0
+    # Keep useful columns
+    df = df[
+        [
+            "GAME_ID",
+            "GAME_DATE",
+            "TEAM_ID",
+            "TEAM_ABBREVIATION",
+            "MATCHUP",
+            "WL",
+            "PTS",
+            "REB",
+            "AST"
+        ]
+    ].copy()
 
+    # Self-join each game so each team row gets opponent stats
+    merged = df.merge(
+        df,
+        on="GAME_ID",
+        suffixes=("_team", "_opp")
+    )
+
+    # Remove self-match rows
+    merged = merged[merged["TEAM_ID_team"] != merged["TEAM_ID_opp"]].copy()
+
+    # Home indicator: "vs." means home, "@" means away
+    merged["home"] = merged["MATCHUP_team"].apply(lambda x: 1 if "vs." in x else 0)
+    merged["win"] = merged["WL_team"].apply(lambda x: 1 if x == "W" else 0)
+
+    final_df = merged[
+        [
+            "GAME_ID",
+            "GAME_DATE_team",
+            "TEAM_ID_team",
+            "TEAM_ABBREVIATION_team",
+            "TEAM_ABBREVIATION_opp",
+            "PTS_team",
+            "PTS_opp",
+            "REB_team",
+            "REB_opp",
+            "AST_team",
+            "AST_opp",
+            "home",
+            "win"
+        ]
+    ].copy()
+
+    final_df.columns = [
+        "game_id",
+        "game_date",
+        "team_id",
+        "team",
+        "opponent",
+        "team_points",
+        "opponent_points",
+        "team_reb",
+        "opponent_reb",
+        "team_ast",
+        "opponent_ast",
+        "home",
+        "win"
+    ]
+
+    rows_inserted = 0
+
+    for _, row in final_df.iterrows():
         cursor.execute("""
-        INSERT OR IGNORE INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO games (
+            game_id,
+            game_date,
+            team_id,
+            team,
+            opponent,
+            team_points,
+            opponent_points,
+            team_reb,
+            opponent_reb,
+            team_ast,
+            opponent_ast,
+            home,
+            win
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            game_id + "_home",
-            g.get("startDate"),
-            home_team,
-            away_team,
-            home_score,
-            away_score,
-            None,
-            None,
-            None,
-            None,
-            1,
-            home_win
+            row["game_id"],
+            row["game_date"],
+            int(row["team_id"]),
+            row["team"],
+            row["opponent"],
+            int(row["team_points"]),
+            int(row["opponent_points"]),
+            int(row["team_reb"]),
+            int(row["opponent_reb"]),
+            int(row["team_ast"]),
+            int(row["opponent_ast"]),
+            int(row["home"]),
+            int(row["win"])
         ))
-
-        cursor.execute("""
-        INSERT OR IGNORE INTO games VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            game_id + "_away",
-            g.get("startDate"),
-            away_team,
-            home_team,
-            away_score,
-            home_score,
-            None,
-            None,
-            None,
-            None,
-            0,
-            away_win
-        ))
+        rows_inserted += 1
 
     conn.commit()
     conn.close()
-    print(f"Inserted {len(data) * 2} rows into database.")
+
+    print(f"Inserted/updated {rows_inserted} team-game rows.")
 
 
 

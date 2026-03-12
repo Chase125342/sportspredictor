@@ -36,10 +36,16 @@ def train_model():
 
 def predict_game(points_diff, team_reb_roll, opponent_reb_roll, team_ast_roll, opponent_ast_roll, home):
     model = pickle.load(open(MODELPATH, "rb"))
+    features = pd.DataFrame([{
+        "points_diff": points_diff,
+        "team_reb_roll": team_reb_roll,
+        "opponent_reb_roll": opponent_reb_roll,
+        "team_ast_roll": team_ast_roll,
+        "opponent_ast_roll": opponent_ast_roll,
+        "home": home
+    }])
 
-    X = [[points_diff, team_reb_roll, opponent_reb_roll, team_ast_roll, opponent_ast_roll, home]]
-
-    prob = model.predict_proba(X)[0][1]
+    prob = model.predict_proba(features)[0][1]
     return prob
 
 def evaluate_bet(probability):
