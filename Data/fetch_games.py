@@ -6,7 +6,7 @@ import os
 DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
 
 
-def fetch_games(season = "2025-2026"):
+def fetch_games_teamwins(season = "2025-2026"):
     conn = sqlite3.connect(DBPATH)
     cursor = conn.cursor()
 

@@ -1,27 +1,27 @@
-from Data.generate_features import generate_features
-from Data.fetch_games import fetch_games
-from prediction_ai import train_model, predict_game, evaluate_bet
+from Data.generate_features import generate_features_teamwins
+from Data.fetch_games import fetch_games_teamwins
+from prediction_ai import train_model_teamwins, predict_game_teamwins, evaluate_bet_teamwins
 
 print("Getting NBA game data...")
-fetch_games("2025-26")
+fetch_games_teamwins("2025-26")
 
 print("Populating database...")
-generate_features()  
+generate_features_teamwins()  
 
 print("Training model on data...")
-train_model()
+train_model_teamwins()
 
 print("Getting results...")
-prob = predict_game(
-    points_diff=10,
-    team_reb_roll=1,
-    opponent_reb_roll=8,
-    team_ast_roll=1,
-    opponent_ast_roll=6,
-    home=0
+prob = predict_game_teamwins(
+    points_diff=0,
+    team_reb_roll=4,
+    opponent_reb_roll=5,
+    team_ast_roll=4,
+    opponent_ast_roll=5,
+    home=1
 )
 print("Win Probability:", round(prob, 3))
-print("Evaluation:", evaluate_bet(prob))
+print("Evaluation:", evaluate_bet_teamwins(prob))
 
 
 

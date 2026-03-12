@@ -10,7 +10,7 @@ BASEDIR = os.path.dirname(os.path.abspath(__file__))
 DBPATH = os.path.join(BASEDIR, "Data", "nba_stats.db")  
 MODELPATH = os.path.join(BASEDIR, "models", "nba_model.pkl")
 
-def train_model():
+def train_model_teamwins():
     #database connection and data loading
     
     conn = sqlite3.connect(DBPATH)
@@ -34,7 +34,7 @@ def train_model():
     os.makedirs(os.path.dirname(MODELPATH), exist_ok=True)
     pickle.dump(model, open(MODELPATH, "wb"))
 
-def predict_game(points_diff, team_reb_roll, opponent_reb_roll, team_ast_roll, opponent_ast_roll, home):
+def predict_game_teamwins(points_diff, team_reb_roll, opponent_reb_roll, team_ast_roll, opponent_ast_roll, home):
     model = pickle.load(open(MODELPATH, "rb"))
     features = pd.DataFrame([{
         "points_diff": points_diff,
@@ -48,7 +48,7 @@ def predict_game(points_diff, team_reb_roll, opponent_reb_roll, team_ast_roll, o
     prob = model.predict_proba(features)[0][1]
     return prob
 
-def evaluate_bet(probability):
+def evaluate_bet_teamwins(probability):
     if probability > 0.60:
         return "Good Bet"
     elif probability > 0.52:

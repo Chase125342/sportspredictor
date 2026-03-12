@@ -4,7 +4,7 @@ import os
 
 DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
 
-def generate_features(rolling_window: int = 5):
+def generate_features_teamwins(rolling_window: int = 5):
 
     conn = sqlite3.connect(DBPATH)
     df = pd.read_sql("SELECT * FROM games", conn)
