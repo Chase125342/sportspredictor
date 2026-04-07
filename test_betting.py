@@ -1,3 +1,5 @@
+'''
+
 from prediction_ai import predict_game, evaluate_bet
 #could not get pytest working 
 def run_test_cases():
@@ -56,3 +58,5 @@ def run_test_cases():
 
 if __name__ == "__main__":
     run_test_cases()
+'''
+

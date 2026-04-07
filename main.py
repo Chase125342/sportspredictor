@@ -18,7 +18,7 @@ prob = predict_game_teamwins(
     opponent_reb_roll=5,
     team_ast_roll=4,
     opponent_ast_roll=5,
-    home=1
+    home=0
 )
 print("Win Probability:", round(prob, 3))
 print("Evaluation:", evaluate_bet_teamwins(prob))
