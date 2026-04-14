@@ -3,10 +3,12 @@ import pandas as pd
 import sqlite3
 import os
 
-DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
+DBPATH = os.path.join(BASEDIR, "nba_stats.db")
 
 
-def fetch_games_teamwins(season = "2025-2026"):
+
+def fetch_games_teamwins(season = "2025-26"):
     conn = sqlite3.connect(DBPATH)
     cursor = conn.cursor()
 
@@ -37,7 +39,7 @@ def fetch_games_teamwins(season = "2025-2026"):
         player_or_team_abbreviation="T"
     ).get_data_frames()[0]
 
-    # Keep useful columns
+
     df = df[
         [
             "GAME_ID",
@@ -52,17 +54,17 @@ def fetch_games_teamwins(season = "2025-2026"):
         ]
     ].copy()
 
-    # Self-join each game so each team row gets opponent stats
+    
     merged = df.merge(
         df,
         on="GAME_ID",
         suffixes=("_team", "_opp")
     )
 
-    # Remove self-match rows
+    
     merged = merged[merged["TEAM_ID_team"] != merged["TEAM_ID_opp"]].copy()
 
-    # Home indicator: "vs." means home, "@" means away
+    
     merged["home"] = merged["MATCHUP_team"].apply(lambda x: 1 if "vs." in x else 0)
     merged["win"] = merged["WL_team"].apply(lambda x: 1 if x == "W" else 0)
 

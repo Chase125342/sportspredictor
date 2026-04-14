@@ -2,7 +2,9 @@ import sqlite3
 import pandas as pd
 import os
 
-DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
+DBPATH = os.path.join(BASEDIR, "nba_stats.db")
+
 
 def generate_features_teamwins(rolling_window: int = 5):
 
