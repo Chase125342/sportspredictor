@@ -6,6 +6,8 @@ from Data.fetch_games import fetch_games_teamwins
 from Data.generate_features import generate_features_teamwins
 from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
 
+from decision_logic import decision_maker
+
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
 DBPATH = os.path.join(BASEDIR, "Data", "nba_stats.db")
 
@@ -110,9 +112,22 @@ def predict_game(team1: str, team2: str, home_team: int = 1):
         "bet_recommendation": recommendation
     }
 
+"""
+decision_analysis - Provide reasoning behind prediciotn based on team stats and decision logic
+
+PARAMETERS:
+team (str): team abbreviation for team to analyze (e.g. LAL)
+home_team (int): 1 if team is home, 0 if away
+
+OUTPUT:
+Dictionary with analysis of key factors influencing prediction
+"""
+def decision_analysis(team: str, home_team: int = 1):
+    return decision_maker(team, home_team)
+
 
 #TESTING
-"""
+'''
 if __name__ == "__main__":
     team1 = input("Enter Team 1 (e.g. LAL): ").upper()
     team2 = input("Enter Team 2 (e.g. BOS): ").upper()
@@ -123,8 +138,7 @@ if __name__ == "__main__":
     print(f"{result['team_1']} vs {result['team_2']}")
     print(f"Win Probability ({team1}): {result['team_1_win_probability']}")
     print(f"Bet Evaluation: {result['bet_recommendation']}")
-"""
-
+'''
 
 
 

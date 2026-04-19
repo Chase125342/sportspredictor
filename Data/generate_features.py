@@ -35,7 +35,7 @@ def generate_features_teamwins(rolling_window: int = 5):
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS team_game_stats (
-        game_id TEXT PRIMARY KEY,
+        game_id TEXT,
         team TEXT,
         opponent TEXT,
         points_diff REAL,
@@ -47,7 +47,8 @@ def generate_features_teamwins(rolling_window: int = 5):
         team_reb_roll REAL,
         opponent_reb_roll REAL,
         team_ast_roll REAL,
-        opponent_ast_roll REAL
+        opponent_ast_roll REAL,
+        PRIMARY KEY (game_id, team)
     )
     """)
     
