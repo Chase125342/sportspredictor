@@ -2,7 +2,9 @@ import sqlite3
 import pandas as pd
 import os
 
-DBPATH = os.path.join(os.path.dirname(__file__), "nba_stats.db")
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
+DBPATH = os.path.join(BASEDIR, "nba_stats.db")
+
 
 def generate_features_teamwins(rolling_window: int = 5):
 
@@ -33,7 +35,7 @@ def generate_features_teamwins(rolling_window: int = 5):
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS team_game_stats (
-        game_id TEXT PRIMARY KEY,
+        game_id TEXT,
         team TEXT,
         opponent TEXT,
         points_diff REAL,
@@ -45,7 +47,8 @@ def generate_features_teamwins(rolling_window: int = 5):
         team_reb_roll REAL,
         opponent_reb_roll REAL,
         team_ast_roll REAL,
-        opponent_ast_roll REAL
+        opponent_ast_roll REAL,
+        PRIMARY KEY (game_id, team)
     )
     """)
     

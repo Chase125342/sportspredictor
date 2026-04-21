@@ -1,29 +1,144 @@
-from Data.generate_features import generate_features_teamwins
+import os
+import sqlite3
+import pandas as pd
+
 from Data.fetch_games import fetch_games_teamwins
-from prediction_ai import train_model_teamwins, predict_game_teamwins, evaluate_bet_teamwins
+from Data.generate_features import generate_features_teamwins
+from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
 
-print("Getting NBA game data...")
-fetch_games_teamwins("2025-26")
+from decision_logic import decision_maker
 
-print("Populating database...")
-generate_features_teamwins()  
+BASEDIR = os.path.dirname(os.path.abspath(__file__))
+DBPATH = os.path.join(BASEDIR, "Data", "nba_stats.db")
 
-print("Training model on data...")
-train_model_teamwins()
+"""
+get_latest_team_stats - Pull most recent rolling stats for a given team
 
-print("Getting results...")
-prob = predict_game_teamwins(
-    points_diff=0,
-    team_reb_roll=4,
-    opponent_reb_roll=5,
-    team_ast_roll=4,
-    opponent_ast_roll=5,
-    home=1
-)
-print("Win Probability:", round(prob, 3))
-print("Evaluation:", evaluate_bet_teamwins(prob))
+PARAMETERS:
+team (str): team abbreviation (e.g. LAL)
+
+OUTPUT:
+DataFrame row with latest stats for that team
+
+this function is used later to build the feature vector for prediction
+"""
+def get_latest_team_stats(team: str):
+    """
+    Pull most recent rolling stats for a given team
+    """
+    conn = sqlite3.connect(DBPATH)
+
+    query = f"""
+    SELECT *
+    FROM team_game_stats
+    WHERE team = '{team}'
+    ORDER BY game_id DESC
+    LIMIT 1
+    """
+
+    df = pd.read_sql(query, conn)
+    conn.close()
+
+    if df.empty:
+        raise ValueError(f"No data found for team: {team}")
+
+    return df.iloc[0]
+
+"""
+build_matchup_features - Construct feature vector for prediction based on team stats
+
+PARAMETERS:
+team1_stats (Series): latest stats for team 1
+team2_stats (Series): latest stats for team 2
+home_team (int): 1 if team 1 is home, 0 if team 2 is home
+
+OUTPUT:
+Dictionary of features to be used for prediction
+"""
+def build_matchup_features(team1_stats, team2_stats, home_team=1):
+    
+    return {
+        "points_diff": team1_stats["team_points_roll"] - team2_stats["team_points_roll"],
+        "team_reb_roll": team1_stats["team_reb_roll"],
+        "opponent_reb_roll": team2_stats["team_reb_roll"],
+        "team_ast_roll": team1_stats["team_ast_roll"],
+        "opponent_ast_roll": team2_stats["team_ast_roll"],
+        "home": home_team
+    }
+
+"""
+predict_game - Main function to predict outcome of a game between two teams
+
+PARAMETERS:
+team1 (str): team abbreviation for team 1 (e.g. LAL)
+team2 (str): team abbreviation for team 2 (e.g. BOS)
+home_team (int): 1 if team 1 is home, 0 if team 2 is home
+
+OUTPUT:
+Dictionary with win probability and bet recommendation
+"""
+
+def predict_game(team1: str, team2: str, home_team: int = 1):
+    
+
+    #keep data updated
+    fetch_games_teamwins()
+    generate_features_teamwins()
+
+    #latest stats for both teams
+    team1_stats = get_latest_team_stats(team1)
+    team2_stats = get_latest_team_stats(team2)
+
+    #feature building
+    features = build_matchup_features(team1_stats, team2_stats, home_team)
+
+    #prediction
+    probability = predict_game_teamwins(
+        features["points_diff"],
+        features["team_reb_roll"],
+        features["opponent_reb_roll"],
+        features["team_ast_roll"],
+        features["opponent_ast_roll"],
+        features["home"]
+    )
+
+    #evaluation
+    recommendation = evaluate_bet_teamwins(probability)
+
+    return {
+        "team_1": team1,
+        "team_2": team2,
+        "team_1_win_probability": round(probability, 4),
+        "bet_recommendation": recommendation
+    }
+
+"""
+decision_analysis - Provide reasoning behind prediciotn based on team stats and decision logic
+
+PARAMETERS:
+team (str): team abbreviation for team to analyze (e.g. LAL)
+home_team (int): 1 if team is home, 0 if away
+
+OUTPUT:
+Dictionary with analysis of key factors influencing prediction
+"""
+def decision_analysis(team: str, home_team: int = 1):
+    return decision_maker(team, home_team)
 
 
+#TESTING
+'''
+if __name__ == "__main__":
+    team1 = input("Enter Team 1 (e.g. LAL): ").upper()
+    team2 = input("Enter Team 2 (e.g. BOS): ").upper()
+
+    result = predict_game(team1, team2)
+
+    print("\n--- Prediction ---")
+    print(f"{result['team_1']} vs {result['team_2']}")
+    print(f"Win Probability ({team1}): {result['team_1_win_probability']}")
+    print(f"Bet Evaluation: {result['bet_recommendation']}")
+'''
 
 
 
