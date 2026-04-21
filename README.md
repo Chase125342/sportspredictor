@@ -1,12 +1,18 @@
 # sportspredictor
 
-## Mock API (local)
+## API (local)
 
 - Install deps (recommend venv): `pip install -r requirements-api.txt`
 - Run: `uvicorn api.main:app --reload --host 0.0.0.0 --port 8000`
 - Test health: `curl http://localhost:8000/health`
-- Test predict (mocked, no model/DB):
+- Get teams from DB:
+  - `curl http://localhost:8000/teams`
+- Predict from matchup (DB + model):
+  - `curl -X POST http://localhost:8000/predict/matchup -H "Content-Type: application/json" -d "{\"team_1\":\"LAL\",\"team_2\":\"BOS\",\"home_team\":1}"`
+- Predict from manual feature vector (model only):
   - `curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d "{\"points_diff\":0,\"team_reb_roll\":4,\"opponent_reb_roll\":5,\"team_ast_roll\":4,\"opponent_ast_roll\":5,\"home\":1}"`
+
+The frontend prediction screen now uses `/teams` + `/predict/matchup` when mock mode is OFF.
 
 ## Mobile V0 (frontend only)
 
