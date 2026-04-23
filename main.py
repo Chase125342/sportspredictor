@@ -142,7 +142,15 @@ def build_live_feed(days_ahead=3):
 
     return games
 
+"""
+select_game - Function to select a game from the live feed for prediction
 
+PARAMETERS:
+games: Dictionary of upcoming games from build_live_feed
+game_selection: Index of the game to select (0-based)
+
+OUTPUT:
+Home team and away team abbreviations to be used in predction. Prediction function will already assume team1 is home."""
 def select_game(games, game_selection):
     row = games.iloc[game_selection]
 
