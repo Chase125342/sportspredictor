@@ -5,6 +5,7 @@ import pandas as pd
 from Data.fetch_games import fetch_games_teamwins
 from Data.generate_features import generate_features_teamwins
 from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
+from live_games import get_upcoming_games
 
 from decision_logic import decision_maker
 
@@ -125,6 +126,21 @@ Dictionary with analysis of key factors influencing prediction
 def decision_analysis(team: str, home_team: int = 1):
     return decision_maker(team, home_team)
 
+"""
+build_live_feed - Function to build live feed of upcoming 10 games in the next three days
+
+PARAMATERS:
+days_ahead (int): number of days ahead to pull games for (default 3)
+
+OUTPUT:
+Dictionary with game details such as teams, date, time, and home/away status
+note: team1 is always the home team, team2 is always the away team for consistency in prediction logic
+"""
+def build_live_feed(days_ahead=3):
+
+    games = get_upcoming_games(days_ahead)
+
+    return games
 
 #TESTING
 '''
