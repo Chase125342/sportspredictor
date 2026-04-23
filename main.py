@@ -142,6 +142,15 @@ def build_live_feed(days_ahead=3):
 
     return games
 
+
+def select_game(games, game_selection):
+    row = games.iloc[game_selection]
+
+    home_team = row["HOME_TEAM_ID"]
+    away_team = row["VISITOR_TEAM_ID"]  
+
+    return home_team, away_team
+
 #TESTING
 '''
 if __name__ == "__main__":
