@@ -2,10 +2,15 @@ import os
 import sqlite3
 import pandas as pd
 
+from nba_api.stats.static import players
+
 from Data.fetch_games import fetch_games_teamwins
 from Data.generate_features import generate_features_teamwins
 from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
 from live_games import get_upcoming_games
+from totals_backend import predict_totals_bet
+
+from player_points_backend import predict_player_bet
 
 from decision_logic import decision_maker
 
@@ -159,7 +164,72 @@ def select_game(games, game_selection):
 
     return home_team, away_team
 
+"""
+predict_totals - Function to predict over/under for a given game based on team stats
+
+PARAMETERS:
+team1 (str): team abbreviation for team 1 (e.g. LAL)
+team2 (str): team abbreviation for team 2 (e.g. BOS)
+line (float): the over/under line to evaluate against (e.g. 220.5 or 220)
+bet_type (str): "over" or "under" to specify which bet type to evaluate
+
+OUTPUT:
+Dictionary with probabilities for over and under, recommendation, and input parameters for reference
+"""
+def predict_totals(team1: str, team2: str, line: float, bet_type: str):
+    return predict_totals_bet(team1, team2, line, bet_type)
+
+"""
+get_player_id - Function to get player ID from player name using nba_api
+
+PARAMETERS:
+player_name (str): full or partial name of the player (e.g. "LeBron James" or "LeBron")
+
+OUTPUT:
+Player ID (int) if found, None if not found. If multiple matches are found for partial name, returns the first match. It's recommended to use full name for accuracy.
+"""
+def get_player_id(player_name: str):
+
+    all_players = players.get_players()
+
+    #first try exact match
+    for p in all_players:
+        if p["full_name"].lower() == player_name.lower():
+            return p["id"]
+
+    #if no exact match, try partial match
+    matches = [
+        p for p in all_players
+        if player_name.lower() in p["full_name"].lower()
+    ]
+
+    if matches:
+        return matches[0]["id"]
+
+    return None
+
+"""
+predict_player_points - Function to predict if a player will go over or under a certain point total based on recent performance
+
+PARAMETERS:
+player_id (int): the unique ID of the player to predict for (can be obtained using get_player_id function)
+line (float): the point total line to evaluate against (e.g. 28.5 or 22.0)
+bet_type (str): "over" or "under" to specify which bet type to evaluate
+
+OUTPUT:
+Dictionary with predicted points, confidence level, recommendation, and input parameters for reference
+"""
+def predict_player_points(player_id: int, line: float, bet_type: str):
+    return predict_player_bet(player_id, line, bet_type)
+
 #TESTING
+
+#result = predict_player_points(player_id=2544, line=28.5, bet_type="over")
+#print(result)
+
+#result = predict_totals("LAL", "BOS", line=220.0, bet_type="over")
+#print(result)
+
 '''
 if __name__ == "__main__":
     team1 = input("Enter Team 1 (e.g. LAL): ").upper()
