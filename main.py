@@ -9,6 +9,11 @@ from Data.generate_features import generate_features_teamwins
 from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
 from live_games import get_upcoming_games
 
+from totals_backend import predict_totals_bet
+from player_points_backend import predict_player_bet
+
+from parlay import calculate_parlay_probability, evaluate_parlay_bet
+
 from decision_logic import decision_maker
 
 BASEDIR = os.path.dirname(os.path.abspath(__file__))
