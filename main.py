@@ -6,6 +6,7 @@ from Data.fetch_games import fetch_games_teamwins
 from Data.generate_features import generate_features_teamwins
 from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
 from live_games import get_upcoming_games
+from parlay import calculate_parlay_probability, evaluate_parlay_bet
 
 from decision_logic import decision_maker
 
@@ -173,6 +174,52 @@ if __name__ == "__main__":
     print(f"Bet Evaluation: {result['bet_recommendation']}")
 '''
 
+def predict_parlay(probabilities: list[float], use_penalty: bool = True, penalty_per_extra_bet: float = 0.02):
+    """
+    Combine multiple bet probabilities into one parlay probability.
 
+    PARAMETERS:
+    probabilities (list[float]): list of probabilities from individual bets
+    use_penalty (bool): whether to apply extra penalty for more bets
+    penalty_per_extra_bet (float): penalty for each extra leg after the first
 
+    OUTPUT:
+    Dictionary with parlay probability and recommendation
+    """
+    parlay_probability = calculate_parlay_probability(
+        probabilities,
+        use_penalty=use_penalty,
+        penalty_per_extra_bet=penalty_per_extra_bet
+    )
 
+    recommendation = evaluate_parlay_bet(parlay_probability)
+
+    return {
+        "individual_probabilities": probabilities,
+        "parlay_probability": round(parlay_probability, 4),
+        "bet_recommendation": recommendation
+    }
+
+def predict_parlay_from_games(matchups: list[tuple[str, str, int]], use_penalty: bool = True, penalty_per_extra_bet: float = 0.02):
+    results = []
+    probabilities = []
+
+    for team1, team2, home_team in matchups:
+        game_result = predict_game(team1, team2, home_team)
+        results.append(game_result)
+        probabilities.append(game_result["team_1_win_probability"])
+
+    parlay_probability = calculate_parlay_probability(
+        probabilities,
+        use_penalty=use_penalty,
+        penalty_per_extra_bet=penalty_per_extra_bet
+    )
+
+    recommendation = evaluate_parlay_bet(parlay_probability)
+
+    return {
+        "legs": results,
+        "individual_probabilities": probabilities,
+        "parlay_probability": round(parlay_probability, 4),
+        "bet_recommendation": recommendation
+    }
