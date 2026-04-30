@@ -2,9 +2,17 @@ import os
 import sqlite3
 import pandas as pd
 
+from nba_api.stats.static import players
+
 from Data.fetch_games import fetch_games_teamwins
 from Data.generate_features import generate_features_teamwins
 from prediction_ai import predict_game_teamwins, evaluate_bet_teamwins
+from live_games import get_upcoming_games
+
+from totals_backend import predict_totals_bet
+from player_points_backend import predict_player_bet
+
+from parlay import calculate_parlay_probability, evaluate_parlay_bet
 
 from decision_logic import decision_maker
 
@@ -125,8 +133,105 @@ Dictionary with analysis of key factors influencing prediction
 def decision_analysis(team: str, home_team: int = 1):
     return decision_maker(team, home_team)
 
+"""
+build_live_feed - Function to build live feed of upcoming 10 games in the next three days
+
+PARAMATERS:
+days_ahead (int): number of days ahead to pull games for (default 3)
+
+OUTPUT:
+Dictionary with game details such as teams, date, time, and home/away status
+note: team1 is always the home team, team2 is always the away team for consistency in prediction logic
+"""
+def build_live_feed(days_ahead=3):
+
+    games = get_upcoming_games(days_ahead)
+
+    return games
+
+"""
+select_game - Function to select a game from the live feed for prediction
+
+PARAMETERS:
+games: Dictionary of upcoming games from build_live_feed
+game_selection: Index of the game to select (0-based)
+
+OUTPUT:
+Home team and away team abbreviations to be used in predction. Prediction function will already assume team1 is home."""
+def select_game(games, game_selection):
+    row = games.iloc[game_selection]
+
+    home_team = row["HOME_TEAM_ID"]
+    away_team = row["VISITOR_TEAM_ID"]  
+
+    return home_team, away_team
+
+"""
+predict_totals - Function to predict over/under for a given game based on team stats
+
+PARAMETERS:
+team1 (str): team abbreviation for team 1 (e.g. LAL)
+team2 (str): team abbreviation for team 2 (e.g. BOS)
+line (float): the over/under line to evaluate against (e.g. 220.5 or 220)
+bet_type (str): "over" or "under" to specify which bet type to evaluate
+
+OUTPUT:
+Dictionary with probabilities for over and under, recommendation, and input parameters for reference
+"""
+def predict_totals(team1: str, team2: str, line: float, bet_type: str):
+    return predict_totals_bet(team1, team2, line, bet_type)
+
+"""
+get_player_id - Function to get player ID from player name using nba_api
+
+PARAMETERS:
+player_name (str): full or partial name of the player (e.g. "LeBron James" or "LeBron")
+
+OUTPUT:
+Player ID (int) if found, None if not found. If multiple matches are found for partial name, returns the first match. It's recommended to use full name for accuracy.
+"""
+def get_player_id(player_name: str):
+
+    all_players = players.get_players()
+
+    #first try exact match
+    for p in all_players:
+        if p["full_name"].lower() == player_name.lower():
+            return p["id"]
+
+    #if no exact match, try partial match
+    matches = [
+        p for p in all_players
+        if player_name.lower() in p["full_name"].lower()
+    ]
+
+    if matches:
+        return matches[0]["id"]
+
+    return None
+
+"""
+predict_player_points - Function to predict if a player will go over or under a certain point total based on recent performance
+
+PARAMETERS:
+player_id (int): the unique ID of the player to predict for (can be obtained using get_player_id function)
+line (float): the point total line to evaluate against (e.g. 28.5 or 22.0)
+bet_type (str): "over" or "under" to specify which bet type to evaluate
+
+OUTPUT:
+Dictionary with predicted points, confidence level, recommendation, and input parameters for reference
+"""
+def predict_player_points(player_id: int, line: float, bet_type: str):
+    return predict_player_bet(player_id, line, bet_type)
 
 #TESTING
+
+#result = predict_player_points(player_id=2544, line=28.5, bet_type="over")
+#print(result)
+
+#result = predict_totals("LAL", "BOS", line=220.0, bet_type="over")
+#print(result)
+
 '''
 if __name__ == "__main__":
     team1 = input("Enter Team 1 (e.g. LAL): ").upper()
@@ -140,6 +245,52 @@ if __name__ == "__main__":
     print(f"Bet Evaluation: {result['bet_recommendation']}")
 '''
 
+def predict_parlay(probabilities: list[float], use_penalty: bool = True, penalty_per_extra_bet: float = 0.02):
+    """
+    Combine multiple bet probabilities into one parlay probability.
 
+    PARAMETERS:
+    probabilities (list[float]): list of probabilities from individual bets
+    use_penalty (bool): whether to apply extra penalty for more bets
+    penalty_per_extra_bet (float): penalty for each extra leg after the first
 
+    OUTPUT:
+    Dictionary with parlay probability and recommendation
+    """
+    parlay_probability = calculate_parlay_probability(
+        probabilities,
+        use_penalty=use_penalty,
+        penalty_per_extra_bet=penalty_per_extra_bet
+    )
 
+    recommendation = evaluate_parlay_bet(parlay_probability)
+
+    return {
+        "individual_probabilities": probabilities,
+        "parlay_probability": round(parlay_probability, 4),
+        "bet_recommendation": recommendation
+    }
+
+def predict_parlay_from_games(matchups: list[tuple[str, str, int]], use_penalty: bool = True, penalty_per_extra_bet: float = 0.02):
+    results = []
+    probabilities = []
+
+    for team1, team2, home_team in matchups:
+        game_result = predict_game(team1, team2, home_team)
+        results.append(game_result)
+        probabilities.append(game_result["team_1_win_probability"])
+
+    parlay_probability = calculate_parlay_probability(
+        probabilities,
+        use_penalty=use_penalty,
+        penalty_per_extra_bet=penalty_per_extra_bet
+    )
+
+    recommendation = evaluate_parlay_bet(parlay_probability)
+
+    return {
+        "legs": results,
+        "individual_probabilities": probabilities,
+        "parlay_probability": round(parlay_probability, 4),
+        "bet_recommendation": recommendation
+    }
