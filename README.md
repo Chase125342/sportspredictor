@@ -1,13 +1,46 @@
 # sportspredictor
 
-## Parlay Probability Calculation
+## API (local)
 
-A new feature was added through `parlay.py` to support parlay betting analysis.
+- Install deps (recommend venv): `pip install -r requirements-api.txt`
+- Run: `uvicorn api.main:app --reload --host 0.0.0.0 --port 8000`
+- Test health: `curl http://localhost:8000/health`
+- Get teams from DB:
+  - `curl http://localhost:8000/teams`
+- Predict from matchup (DB + model):
+  - `curl -X POST http://localhost:8000/predict/matchup -H "Content-Type: application/json" -d "{\"team_1\":\"LAL\",\"team_2\":\"BOS\",\"home_team\":1}"`
+- Predict from manual feature vector (model only):
+  - `curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d "{\"points_diff\":0,\"team_reb_roll\":4,\"opponent_reb_roll\":5,\"team_ast_roll\":4,\"opponent_ast_roll\":5,\"home\":1}"`
 
-The file takes multiple predicted probabilities and multiplies them together to calculate the overall probability that all bets in the parlay will win. Since parlays become harder to win as more bets are added, the file also includes an optional penalty system that decreases the final probability depending on the number of legs in the parlay.
+The frontend prediction screen now uses `/teams` + `/predict/matchup` when mock mode is OFF.
 
-For example, if three bets have probabilities of 0.70, 0.60, and 0.80, the combined parlay probability is:
+## Mobile V0 (frontend only)
 
-0.70 * 0.60 * 0.80 = 0.336
+- Lives in `sportspredictor-mobile/`. Plan in [PLAN.md](PLAN.md).
+- Install deps: `cd sportspredictor-mobile && npm install`.
+- Run locally with Expo: `npm start` → scan QR with Expo Go or press `w` for web.
+- Toggle mock/real API in-app (Settings tab). Default base URL `http://localhost:8000`.
+- V0 uses mock API client; no real data/model/auth yet.
 
-This feature gives the user a more realistic way to evaluate multi-leg bets instead of just viewing single-game predictions.
+## Local run guide
+
+See [RUN_LOCAL.md](RUN_LOCAL.md) for web/Android/iOS steps (Expo Go, web, and optional API).
+
+## Authentication setup
+
+See [AUTH_SETUP.md](AUTH_SETUP.md) for Supabase email/password setup and required Expo env vars.
+
+## Parlay probability
+
+[parlay.py](parlay.py) now provides parlay probability utilities:
+
+- Multiply multiple prediction probabilities together.
+- Optionally apply a penalty for larger parlays.
+- Evaluate the final result with a simple recommendation (`Good Parlay Bet`, `Risky but Playable`, `Avoid`).
+
+Example:
+
+- Probabilities: 0.70, 0.60, 0.80
+- Combined parlay probability: 0.70 × 0.60 × 0.80 = 0.336
+
+Note: the mobile Parlay tab is still a UI placeholder and is not yet wired to this parlay logic.
