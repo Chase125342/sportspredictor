@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
@@ -48,11 +49,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   };
 
   const signUp = async (email: string, password: string): Promise<string | null> => {
+    const webRedirect = typeof window !== "undefined" ? window.location.origin : undefined;
+    const redirectTo = Platform.OS === "web" ? webRedirect : process.env.EXPO_PUBLIC_SUPABASE_REDIRECT_URL;
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: process.env.EXPO_PUBLIC_SUPABASE_REDIRECT_URL,
+        emailRedirectTo: redirectTo,
       },
     });
     return error ? error.message : null;

@@ -42,3 +42,75 @@ export type HealthResponse = {
   model_ready?: boolean;
   database_ready?: boolean;
 };
+
+export type TotalsPredictRequest = {
+  team_1: string;
+  team_2: string;
+  line: number;
+  bet_type: "over" | "under";
+};
+
+export type TotalsPredictResponse = {
+  bet_probability: number;
+  recommendation: string;
+  line: number;
+  bet_type: string;
+};
+
+export type PlayerPointsPredictRequest = {
+  player_name?: string;
+  player_id?: number;
+  line: number;
+  bet_type: "over" | "under";
+};
+
+export type PlayerPointsPredictResponse = {
+  predicted_points: number;
+  line: number;
+  bet_type: string;
+  confidence: number;
+  recommendation: string;
+  player_id: number;
+  player_name: string;
+};
+
+export type ParlayLeg = {
+  kind: "moneyline" | "totals" | "player_points";
+  odds_decimal?: number;
+  team_1?: string;
+  team_2?: string;
+  home_team?: number;
+  line?: number;
+  bet_type?: "over" | "under";
+  player_name?: string;
+  player_id?: number;
+};
+
+export type ParlayRequest = {
+  legs: ParlayLeg[];
+  stake: number;
+  use_penalty: boolean;
+  penalty_per_extra_bet: number;
+};
+
+export type ParlayLegResult = {
+  kind: string;
+  description: string;
+  probability: number;
+  recommendation: string;
+  odds_decimal?: number | null;
+};
+
+export type ParlayResponse = {
+  legs: ParlayLegResult[];
+  parlay_probability: number;
+  bet_recommendation: string;
+  stake: number;
+  combined_odds_decimal?: number | null;
+  potential_payout?: number | null;
+  potential_profit?: number | null;
+};
+
+export type PlayerSearchResponse = {
+  players: Array<{ id: number; full_name: string }>;
+};

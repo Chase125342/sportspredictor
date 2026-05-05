@@ -33,11 +33,13 @@ See [AUTH_SETUP.md](AUTH_SETUP.md) for Supabase email/password setup and require
 ## Parlay probability
 
 [parlay.py](parlay.py) now provides parlay probability utilities:
+
 - Multiply multiple prediction probabilities together.
 - Optionally apply a penalty for larger parlays.
 - Evaluate the final result with a simple recommendation (`Good Parlay Bet`, `Risky but Playable`, `Avoid`).
 
 Example:
+
 - Probabilities: 0.70, 0.60, 0.80
 - Combined parlay probability: 0.70 × 0.60 × 0.80 = 0.336
 

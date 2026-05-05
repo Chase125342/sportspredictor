@@ -2,8 +2,15 @@ import {
   HealthResponse,
   MatchupPredictRequest,
   MatchupPredictResponse,
+  ParlayRequest,
+  ParlayResponse,
+  PlayerPointsPredictRequest,
+  PlayerPointsPredictResponse,
+  PlayerSearchResponse,
   PredictRequest,
   PredictResponse,
+  TotalsPredictRequest,
+  TotalsPredictResponse,
   TeamsResponse,
 } from "./types";
 
@@ -157,6 +164,128 @@ export async function predictMatchup(
 
   if (!res.ok) {
     throw new Error(`Matchup predict failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function predictTotals(
+  payload: TotalsPredictRequest,
+  options?: { baseUrl?: string; useMock?: boolean }
+): Promise<TotalsPredictResponse> {
+  const baseUrl = options?.baseUrl ?? defaultBaseUrl;
+  const useMock = options?.useMock ?? defaultUseMock;
+
+  if (useMock) {
+    const probability = clamp(0.5 + (payload.bet_type === "over" ? 0.05 : -0.05), 0.01, 0.99);
+    return {
+      bet_probability: probability,
+      recommendation: evaluateBet(probability),
+      line: payload.line,
+      bet_type: payload.bet_type,
+    };
+  }
+
+  const res = await fetch(`${baseUrl}/predict/totals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Totals predict failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function predictPlayerPoints(
+  payload: PlayerPointsPredictRequest,
+  options?: { baseUrl?: string; useMock?: boolean }
+): Promise<PlayerPointsPredictResponse> {
+  const baseUrl = options?.baseUrl ?? defaultBaseUrl;
+  const useMock = options?.useMock ?? defaultUseMock;
+
+  if (useMock) {
+    const confidence = clamp(0.55, 0.01, 0.99);
+    return {
+      predicted_points: payload.line + (payload.bet_type === "over" ? 3 : -3),
+      line: payload.line,
+      bet_type: payload.bet_type,
+      confidence,
+      recommendation: evaluateBet(confidence),
+      player_id: payload.player_id ?? 0,
+      player_name: payload.player_name ?? "Unknown",
+    };
+  }
+
+  const res = await fetch(`${baseUrl}/predict/player`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Player predict failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function searchPlayers(
+  name: string,
+  options?: { baseUrl?: string; useMock?: boolean }
+): Promise<PlayerSearchResponse> {
+  const baseUrl = options?.baseUrl ?? defaultBaseUrl;
+  const useMock = options?.useMock ?? defaultUseMock;
+
+  if (useMock) {
+    return { players: [] };
+  }
+
+  const res = await fetch(`${baseUrl}/players/search?name=${encodeURIComponent(name)}`);
+  if (!res.ok) {
+    throw new Error(`Player search failed with status ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function quoteParlay(
+  payload: ParlayRequest,
+  options?: { baseUrl?: string; useMock?: boolean }
+): Promise<ParlayResponse> {
+  const baseUrl = options?.baseUrl ?? defaultBaseUrl;
+  const useMock = options?.useMock ?? defaultUseMock;
+
+  if (useMock) {
+    const probabilities = payload.legs.map(() => 0.55);
+    const parlayProbability = probabilities.reduce((acc, val) => acc * val, 1);
+    return {
+      legs: payload.legs.map((leg, idx) => ({
+        kind: leg.kind,
+        description: `Leg ${idx + 1}`,
+        probability: probabilities[idx],
+        recommendation: evaluateBet(probabilities[idx]),
+        odds_decimal: leg.odds_decimal ?? null,
+      })),
+      parlay_probability: parlayProbability,
+      bet_recommendation: "Risky but Playable",
+      stake: payload.stake,
+      combined_odds_decimal: null,
+      potential_payout: null,
+      potential_profit: null,
+    };
+  }
+
+  const res = await fetch(`${baseUrl}/parlay/quote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Parlay quote failed with status ${res.status}`);
   }
 
   return res.json();
