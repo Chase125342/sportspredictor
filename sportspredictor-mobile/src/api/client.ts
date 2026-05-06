@@ -1,5 +1,6 @@
 import {
   HealthResponse,
+  LiveOddsResponse,
   MatchupPredictRequest,
   MatchupPredictResponse,
   ParlayRequest,
@@ -81,6 +82,139 @@ const mockTeams = [
   "UTA",
   "WAS",
 ];
+
+const nbaTeamNames: Record<string, string> = {
+  ATL: "Atlanta Hawks",
+  BOS: "Boston Celtics",
+  BKN: "Brooklyn Nets",
+  CHA: "Charlotte Hornets",
+  CHI: "Chicago Bulls",
+  CLE: "Cleveland Cavaliers",
+  DAL: "Dallas Mavericks",
+  DEN: "Denver Nuggets",
+  DET: "Detroit Pistons",
+  GSW: "Golden State Warriors",
+  HOU: "Houston Rockets",
+  IND: "Indiana Pacers",
+  LAC: "LA Clippers",
+  LAL: "Los Angeles Lakers",
+  MEM: "Memphis Grizzlies",
+  MIA: "Miami Heat",
+  MIL: "Milwaukee Bucks",
+  MIN: "Minnesota Timberwolves",
+  NOP: "New Orleans Pelicans",
+  NYK: "New York Knicks",
+  OKC: "Oklahoma City Thunder",
+  ORL: "Orlando Magic",
+  PHI: "Philadelphia 76ers",
+  PHX: "Phoenix Suns",
+  POR: "Portland Trail Blazers",
+  SAC: "Sacramento Kings",
+  SAS: "San Antonio Spurs",
+  TOR: "Toronto Raptors",
+  UTA: "Utah Jazz",
+  WAS: "Washington Wizards",
+};
+
+const normalizeName = (value: string) => value.trim().toLowerCase();
+
+const findEventForLeg = (leg: ParlayRequest["legs"][number], events: Array<any>) => {
+  const team1Name = nbaTeamNames[leg.team_1?.toUpperCase() ?? ""] ?? leg.team_1 ?? "";
+  const team2Name = nbaTeamNames[leg.team_2?.toUpperCase() ?? ""] ?? leg.team_2 ?? "";
+  const normalized1 = normalizeName(team1Name);
+  const normalized2 = normalizeName(team2Name);
+
+  return events.find((event) => {
+    const teams = [event.home_team, event.away_team]
+      .filter(Boolean)
+      .map(normalizeName);
+    if (teams.includes(normalized1) && teams.includes(normalized2)) {
+      return true;
+    }
+
+    const extraTeams = (event.teams ?? []).filter(Boolean).map(normalizeName);
+    return extraTeams.includes(normalized1) && extraTeams.includes(normalized2);
+  });
+};
+
+export async function getLiveOddsForLeg(
+  leg: ParlayRequest["legs"][number],
+  options?: { useMock?: boolean; oddsApiKey?: string }
+): Promise<LiveOddsResponse> {
+  const useMock = options?.useMock ?? defaultUseMock;
+  if (useMock || !options?.oddsApiKey) {
+    return {
+      source: "mock",
+      team_1_odds: leg.kind === "moneyline" ? 1.90 : undefined,
+      team_2_odds: leg.kind === "moneyline" ? 1.95 : undefined,
+      total_line: leg.kind === "totals" ? leg.line ?? 220 : undefined,
+      total_over_odds: leg.kind === "totals" ? 1.90 : undefined,
+      total_under_odds: leg.kind === "totals" ? 1.95 : undefined,
+      message: "Mock odds returned when live odds are disabled or no API key is set.",
+    };
+  }
+
+  if (!leg.team_1 || !leg.team_2) {
+    return { source: "api", message: "Team information is required for live odds." };
+  }
+
+  const url = new URL("https://api.the-odds-api.com/v4/sports/basketball_nba/odds");
+  url.searchParams.set("regions", "us");
+  url.searchParams.set("markets", "h2h,totals");
+  url.searchParams.set("oddsFormat", "decimal");
+  url.searchParams.set("dateFormat", "iso");
+  url.searchParams.set("apiKey", options.oddsApiKey);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error(`Odds API request failed with status ${res.status}`);
+  }
+
+  const events = (await res.json()) as Array<any>;
+  const event = findEventForLeg(leg, events);
+  if (!event) {
+    return { source: "api", message: "No live game match found for this matchup." };
+  }
+
+  const bookmaker = event.bookmakers?.[0];
+  if (!bookmaker) {
+    return { source: "api", message: "No bookmaker data available for this game." };
+  }
+
+  const h2h = bookmaker.markets?.find((market: any) => market.key === "h2h");
+  const totals = bookmaker.markets?.find((market: any) => market.key === "totals");
+  const response: LiveOddsResponse = { source: "api" };
+
+  if (h2h) {
+    const team1Name = nbaTeamNames[leg.team_1.toUpperCase()] ?? leg.team_1;
+    const team2Name = nbaTeamNames[leg.team_2.toUpperCase()] ?? leg.team_2;
+    const team1Outcome = h2h.outcomes?.find((outcome: any) => normalizeName(outcome.name) === normalizeName(team1Name));
+    const team2Outcome = h2h.outcomes?.find((outcome: any) => normalizeName(outcome.name) === normalizeName(team2Name));
+    if (team1Outcome?.price != null) response.team_1_odds = Number(team1Outcome.price);
+    if (team2Outcome?.price != null) response.team_2_odds = Number(team2Outcome.price);
+  }
+
+  if (totals) {
+    const overOutcome = totals.outcomes?.find((outcome: any) => normalizeName(outcome.name) === "over");
+    const underOutcome = totals.outcomes?.find((outcome: any) => normalizeName(outcome.name) === "under");
+    if (overOutcome?.price != null) response.total_over_odds = Number(overOutcome.price);
+    if (underOutcome?.price != null) response.total_under_odds = Number(underOutcome.price);
+    if (totals.outcomes?.[0]?.point != null) response.total_line = Number(totals.outcomes[0].point);
+  }
+
+  if (!response.team_1_odds && !response.team_2_odds && !response.total_over_odds && !response.total_under_odds) {
+    response.message = "Live odds are available but no matching outcome was found.";
+  }
+
+  return response;
+}
+
+export async function getLiveOddsForLegs(
+  legs: ParlayRequest["legs"],
+  options?: { useMock?: boolean; oddsApiKey?: string }
+): Promise<LiveOddsResponse[]> {
+  return Promise.all(legs.map((leg) => getLiveOddsForLeg(leg, options)));
+}
 
 export async function getTeams(options?: { baseUrl?: string; useMock?: boolean }): Promise<TeamsResponse> {
   const baseUrl = options?.baseUrl ?? defaultBaseUrl;

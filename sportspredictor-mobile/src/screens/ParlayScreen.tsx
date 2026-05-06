@@ -4,8 +4,8 @@ import { AppButton } from "../components/AppButton";
 import { Card } from "../components/Card";
 import { FormField } from "../components/FormField";
 import { Screen } from "../components/Screen";
-import { quoteParlay } from "../api/client";
-import { ParlayLeg, ParlayResponse } from "../api/types";
+import { getLiveOddsForLeg, getLiveOddsForLegs, quoteParlay } from "../api/client";
+import { LiveOddsResponse, ParlayLeg, ParlayResponse } from "../api/types";
 import { useAppContext } from "../context/AppContext";
 import { palette, radii, spacing, typography } from "../theme/theme";
 
@@ -24,12 +24,15 @@ const defaultLeg = {
 };
 
 export const ParlayScreen: React.FC = () => {
-  const { apiBaseUrl, useMockApi } = useAppContext();
+  const { apiBaseUrl, useMockApi, oddsApiKey } = useAppContext();
   const [legs, setLegs] = useState<ParlayLeg[]>([]);
   const [draft, setDraft] = useState(defaultLeg);
   const [stake, setStake] = useState("100");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParlayResponse | null>(null);
+  const [liveOdds, setLiveOdds] = useState<Record<number, LiveOddsResponse>>({});
+  const [liveOddsLoading, setLiveOddsLoading] = useState(false);
+  const [liveOddsMessage, setLiveOddsMessage] = useState<string | null>(null);
 
   const canAddLeg = useMemo(() => {
     if (draft.kind === "moneyline") {
@@ -47,10 +50,10 @@ export const ParlayScreen: React.FC = () => {
     }
   }, [legs]);
 
-  const addLeg = () => {
+  const addLeg = async () => {
     if (!canAddLeg) return;
 
-    const baseLeg: ParlayLeg = {
+    let baseLeg: ParlayLeg = {
       kind: draft.kind,
       odds_decimal: draft.odds_decimal ? Number(draft.odds_decimal) : undefined,
     };
@@ -75,11 +78,126 @@ export const ParlayScreen: React.FC = () => {
       baseLeg.bet_type = draft.bet_type;
     }
 
+    if (useMockApi && oddsApiKey) {
+      Alert.alert("Mock API active", "Turn off mock API in Settings to auto-fill live odds for new legs.");
+    }
+
+    if (!useMockApi && oddsApiKey && (draft.kind === "moneyline" || draft.kind === "totals")) {
+      try {
+        setLiveOddsLoading(true);
+        baseLeg = await fetchOddsForLeg(baseLeg);
+        setLiveOddsMessage("Auto-filled odds for new leg using live odds.");
+      } catch (error: any) {
+        console.error(error);
+        setLiveOddsMessage(
+          `Could not auto-fill odds for the new leg.${error?.message ? ` ${error.message}` : ""}`
+        );
+      } finally {
+        setLiveOddsLoading(false);
+      }
+    }
+
     setLegs((prev) => [...prev, baseLeg]);
   };
 
   const removeLeg = (index: number) => {
     setLegs((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const fetchOddsForLeg = async (leg: ParlayLeg): Promise<ParlayLeg> => {
+    if (useMockApi || !oddsApiKey) return leg;
+
+    const odds = await getLiveOddsForLeg(leg, { useMock: useMockApi, oddsApiKey });
+
+    if (leg.kind === "moneyline") {
+      const selectedOdds = leg.home_team === 1 ? odds.team_1_odds : odds.team_2_odds;
+      if (selectedOdds) {
+        return { ...leg, odds_decimal: selectedOdds };
+      }
+    }
+
+    if (leg.kind === "totals") {
+      const selectedOdds = leg.bet_type === "under" ? odds.total_under_odds : odds.total_over_odds;
+      if (selectedOdds) {
+        return { ...leg, odds_decimal: selectedOdds };
+      }
+    }
+
+    return leg;
+  };
+
+  const fetchLiveOdds = async () => {
+    if (legs.length === 0) {
+      Alert.alert("Add a leg", "Add at least one leg before fetching live odds.");
+      return;
+    }
+
+    if (!oddsApiKey) {
+      Alert.alert("Missing Odds API key", "Set your the-odds-api.com key in Settings first.");
+      return;
+    }
+
+    if (useMockApi) {
+      Alert.alert("Mock API active", "Turn off mock API in Settings to fetch live odds from the Odds API.");
+      return;
+    }
+
+    setLiveOddsLoading(true);
+    setLiveOddsMessage(null);
+
+    try {
+      const results = await getLiveOddsForLegs(legs, {
+        useMock: useMockApi,
+        oddsApiKey,
+      });
+
+      const mappedOdds: Record<number, LiveOddsResponse> = {};
+      let replacedCount = 0;
+
+      const updatedLegs = legs.map((leg, idx) => {
+        const odds = results[idx];
+        mappedOdds[idx] = odds;
+
+        if (leg.kind === "moneyline") {
+          const selectedOdds = leg.home_team === 1 ? odds.team_1_odds : odds.team_2_odds;
+          if (selectedOdds) {
+            replacedCount += 1;
+            return { ...leg, odds_decimal: selectedOdds };
+          }
+        }
+
+        if (leg.kind === "totals") {
+          const selectedOdds = leg.bet_type === "under" ? odds.total_under_odds : odds.total_over_odds;
+          if (selectedOdds) {
+            replacedCount += 1;
+            return { ...leg, odds_decimal: selectedOdds };
+          }
+        }
+
+        return leg;
+      });
+
+      setLiveOdds(mappedOdds);
+      setLegs(updatedLegs);
+
+      if (replacedCount > 0) {
+        const message = `Live odds loaded. Replaced ${replacedCount} leg${replacedCount === 1 ? "" : "s"}.`;
+        setLiveOddsMessage(message);
+        Alert.alert("Live odds updated", message);
+      } else {
+        const messages = results.map((result) => result.message).filter(Boolean);
+        const message = messages.length > 0 ? messages.join(" ") : "Live odds fetched, but no matching odds were available for the selected legs.";
+        setLiveOddsMessage(message);
+        Alert.alert("Live odds update", message);
+      }
+    } catch (error: any) {
+      console.error(error);
+      setLiveOddsMessage(
+        `Unable to fetch live odds. Check your API key and network.${error?.message ? ` ${error.message}` : ""}`
+      );
+    } finally {
+      setLiveOddsLoading(false);
+    }
   };
 
   const quote = async () => {
@@ -215,20 +333,46 @@ export const ParlayScreen: React.FC = () => {
         </Card>
 
         <Card>
+          <Text style={styles.sectionTitle}>Live odds</Text>
+          <Text style={styles.helper}>Fetch NBA live moneyline and totals odds for the current parlay legs.</Text>
+          <AppButton
+            title="Fetch live odds"
+            onPress={fetchLiveOdds}
+            loading={liveOddsLoading}
+            disabled={useMockApi || !oddsApiKey}
+          />
+          {useMockApi ? <Text style={styles.helper}>Turn off mock API in Settings to use live odds.</Text> : null}
+          {!useMockApi && !oddsApiKey ? <Text style={styles.helper}>Save your Odds API key in Settings first.</Text> : null}
+          {liveOddsMessage ? <Text style={styles.helper}>{liveOddsMessage}</Text> : null}
+        </Card>
+
+        <Card>
           <Text style={styles.sectionTitle}>Current legs</Text>
           {legs.length === 0 ? (
             <Text style={styles.helper}>No legs yet. Add a leg to start building your parlay.</Text>
           ) : (
             <View style={styles.legs}>
-              {legs.map((leg, idx) => (
-                <View key={`${leg.kind}-${idx}`} style={styles.legRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.legTitle}>{leg.kind.replace("_", " ")}</Text>
-                    <Text style={styles.legOdds}>Odds: {leg.odds_decimal ? leg.odds_decimal.toFixed(2) : "n/a"}</Text>
+              {legs.map((leg, idx) => {
+                const live = liveOdds[idx];
+                return (
+                  <View key={`${leg.kind}-${idx}`} style={styles.legRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.legTitle}>{leg.kind.replace("_", " ")}</Text>
+                      <Text style={styles.legOdds}>Odds: {leg.odds_decimal ? leg.odds_decimal.toFixed(2) : "n/a"}</Text>
+                      {live ? (
+                        <Text style={styles.helper}>
+                          {leg.kind === "moneyline"
+                            ? `Live: ${leg.team_1 ?? "Team 1"} @ ${live.team_1_odds ?? "n/a"} · ${leg.team_2 ?? "Team 2"} @ ${live.team_2_odds ?? "n/a"}`
+                            : leg.kind === "totals"
+                            ? `Live: ${live.total_line ?? leg.line ?? "n/a"} ${leg.bet_type ?? ""} @ ${leg.bet_type === "under" ? live.total_under_odds ?? "n/a" : live.total_over_odds ?? "n/a"}`
+                            : live.message ?? "Live odds unavailable."}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <AppButton title="Remove" variant="secondary" onPress={() => removeLeg(idx)} />
                   </View>
-                  <AppButton title="Remove" variant="secondary" onPress={() => removeLeg(idx)} />
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </Card>

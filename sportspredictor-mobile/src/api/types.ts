@@ -111,6 +111,16 @@ export type ParlayResponse = {
   potential_profit?: number | null;
 };
 
+export type LiveOddsResponse = {
+  source: "api" | "mock";
+  team_1_odds?: number | null;
+  team_2_odds?: number | null;
+  total_line?: number | null;
+  total_over_odds?: number | null;
+  total_under_odds?: number | null;
+  message?: string;
+};
+
 export type PlayerSearchResponse = {
   players: Array<{ id: number; full_name: string }>;
 };

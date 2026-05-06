@@ -10,10 +10,11 @@ import { useAppContext } from "../context/AppContext";
 import { palette, radii, spacing, typography } from "../theme/theme";
 
 export const SettingsScreen: React.FC = () => {
-  const { apiBaseUrl, setApiBaseUrl, useMockApi, setUseMockApi, theme, toggleTheme } = useAppContext();
+  const { apiBaseUrl, setApiBaseUrl, useMockApi, setUseMockApi, oddsApiKey, setOddsApiKey, theme, toggleTheme } = useAppContext();
   const { userEmail, signOut } = useAuth();
   const [health, setHealth] = useState<string>("unknown");
   const [urlDraft, setUrlDraft] = useState(apiBaseUrl);
+  const [oddsKeyDraft, setOddsKeyDraft] = useState(oddsApiKey);
   const [checking, setChecking] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -33,7 +34,8 @@ export const SettingsScreen: React.FC = () => {
 
   useEffect(() => {
     setUrlDraft(apiBaseUrl);
-  }, [apiBaseUrl]);
+    setOddsKeyDraft(oddsApiKey);
+  }, [apiBaseUrl, oddsApiKey]);
 
   const handleSignOut = async () => {
     setLoggingOut(true);
@@ -45,6 +47,16 @@ export const SettingsScreen: React.FC = () => {
     } finally {
       setLoggingOut(false);
     }
+  };
+
+  const handleSaveOddsKey = () => {
+    if (!oddsKeyDraft.trim()) {
+      Alert.alert("Missing API key", "Paste your Odds API key into the field before saving.");
+      return;
+    }
+
+    setOddsApiKey(oddsKeyDraft.trim());
+    Alert.alert("Saved", "Odds API key saved.");
   };
 
   return (
@@ -78,6 +90,20 @@ export const SettingsScreen: React.FC = () => {
             />
             <AppButton title="Save URL" onPress={() => setApiBaseUrl(urlDraft)} style={styles.save} />
           </View>
+
+          <View style={styles.fieldRow}>
+            <Text style={styles.label}>Odds API Key</Text>
+            <TextInput
+              value={oddsKeyDraft}
+              onChangeText={setOddsKeyDraft}
+              placeholder="Enter your Odds API key"
+              placeholderTextColor={palette.muted}
+              style={styles.input}
+              autoCapitalize="none"
+            />
+            <AppButton title="Save Key" onPress={handleSaveOddsKey} style={styles.save} />
+          </View>
+          <Text style={styles.helper}>Paste your real Odds API key into the field above, then tap Save Key.</Text>
 
           <AppButton title="Check Health" onPress={checkHealth} loading={checking} />
           <Text style={styles.helper}>Current status: {health}</Text>

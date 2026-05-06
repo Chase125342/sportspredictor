@@ -10,22 +10,27 @@ type AppContextState = {
   setApiBaseUrl: (url: string) => void;
   useMockApi: boolean;
   setUseMockApi: (next: boolean) => void;
+  oddsApiKey: string;
+  setOddsApiKey: (key: string) => void;
   theme: ThemeMode;
   toggleTheme: () => void;
 };
 
 const AppContext = createContext<AppContextState | undefined>(undefined);
 
+const defaultOddsApiKey = process.env.EXPO_PUBLIC_ODDS_API_KEY ?? "";
+
 export const AppProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(defaultBaseUrl);
   const [useMockApi, setUseMockApi] = useState<boolean>(defaultUseMock);
+  const [oddsApiKey, setOddsApiKey] = useState<string>(defaultOddsApiKey);
   const [theme, setTheme] = useState<ThemeMode>("dark");
 
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
   const value = useMemo(
-    () => ({ apiBaseUrl, setApiBaseUrl, useMockApi, setUseMockApi, theme, toggleTheme }),
-    [apiBaseUrl, useMockApi, theme]
+    () => ({ apiBaseUrl, setApiBaseUrl, useMockApi, setUseMockApi, oddsApiKey, setOddsApiKey, theme, toggleTheme }),
+    [apiBaseUrl, useMockApi, oddsApiKey, theme]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
